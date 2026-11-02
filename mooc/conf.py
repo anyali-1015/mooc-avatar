@@ -18,7 +18,10 @@ def _load_env():
 
 _load_env()
 CFG = yaml.safe_load((ROOT / "config.yaml").read_text("utf-8"))
-DATA = (ROOT / CFG["data_dir"]).resolve()
+# 部署时用环境变量切换，不必改配置文件
+CFG["tts_provider"] = os.environ.get("TTS_PROVIDER", CFG["tts_provider"])
+CFG["lipsync"]["engine"] = os.environ.get("LIPSYNC_ENGINE", CFG["lipsync"]["engine"])
+DATA = Path(os.environ.get("DATA_DIR") or ROOT / CFG["data_dir"]).resolve()
 DATA.mkdir(parents=True, exist_ok=True)
 
 

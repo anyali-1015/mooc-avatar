@@ -15,10 +15,20 @@ def ff(*args):
     if r.returncode: raise RuntimeError("ffmpeg 失败：" + r.stderr.strip()[-800:])
 
 
-def to_wav(src, dst, sr=None):
-    """转 16bit 单声道 wav，并统一响度（loudnorm）。"""
+def to_wav(src, dst, sr=None, norm=True):
+    """转 16bit 单声道 wav；norm 时统一响度（loudnorm）。"""
     sr = sr or CFG["tts"]["sample_rate"]
-    ff("-i", src, "-af", f"loudnorm=I={CFG['tts']['loudness_lufs']}:TP=-1.5:LRA=11", "-ar", sr, "-ac", 1, dst)
+    af = ["-af", f"loudnorm=I={CFG['tts']['loudness_lufs']}:TP=-1.5:LRA=11"] if norm else []
+    ff("-i", src, *af, "-ar", sr, "-ac", 1, dst)
+
+
+def write_wav(a, sr, dst):
+    with wave.open(str(dst), "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(sr)
+        w.writeframes((np.clip(a, -1, 1) * 32767).astype(np.int16).tobytes())
+
+
+def video_seconds(p): return imageio_ffmpeg.count_frames_and_secs(str(p))[1]
 
 
 def wav_seconds(p):
@@ -32,28 +42,6 @@ def wav_array(p):
     return a, sr
 
 
-def split_wav(src, max_s, outdir):
-    """按上限切段，切点选在目标位置 ±3 秒内最安静的 50ms，避免切在字中间。"""
-    a, sr = wav_array(src)
-    total = len(a) / sr
-    if total <= max_s: return [Path(src)]
-    n = int(np.ceil(total / (max_s - 3)))
-    step, win, cuts = total / n, int(0.05 * sr), [0]
-    for i in range(1, n):
-        t = i * step
-        lo, hi = int(max(t - 3, 0) * sr), int(min(t + 3, total) * sr)
-        seg = a[lo:hi]
-        e = np.convolve(seg ** 2, np.ones(win), "valid") if len(seg) > win else seg ** 2
-        cuts.append(lo + int(np.argmin(e)) + win // 2)
-    cuts.append(len(a))
-    out = []
-    for i in range(len(cuts) - 1):
-        p = Path(outdir) / f"{Path(src).stem}_part{i}.wav"
-        with wave.open(str(p), "wb") as w:
-            w.setnchannels(1); w.setsampwidth(2); w.setframerate(sr)
-            w.writeframes((a[cuts[i]:cuts[i + 1]] * 32767).astype(np.int16).tobytes())
-        out.append(p)
-    return out
 
 
 def concat(parts, dst, copy=True):
@@ -76,9 +64,15 @@ def frames(video, n, size=None):
     return out
 
 
+FONTS = [CFG["layout"]["font"], "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+         "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc", "/System/Library/Fonts/STHeiti Medium.ttc"]
+
+
 def font(size):
-    try: return ImageFont.truetype(CFG["layout"]["font"], size)
-    except Exception: return ImageFont.load_default()
+    for f in FONTS:
+        try: return ImageFont.truetype(f, size)
+        except Exception: pass
+    return ImageFont.load_default()
 
 
 def watermark_png(text, dst):

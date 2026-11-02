@@ -3,48 +3,72 @@
 # 密钥不要写在这里，放环境变量或 .env（见 .env.example）。
 
 course: 数据结构      # 课程名，用于授权说明
-data_dir: data
+data_dir: data       # 部署到 AutoDL 时由 start.sh 设 DATA_DIR=/root/autodl-tmp/mooc-data
 
-# mock：本地假数据跑通全流程（声音用 macOS say，数字人用照片轻微晃动），不花钱
-# cosyvoice / omnihuman：真实接口
+# mock：用 macOS say / espeak-ng 发声，不花钱，只为跑通流程
+# cosyvoice：阿里云百炼 CosyVoice 复刻声音
 tts_provider: mock
-avatar_provider: mock
-storage: local          # local（仅 mock 可用）/ oss
 ppt_keynote: false      # 没有 PDF 和 LibreOffice 时尝试用 Keynote 转换（可能弹窗卡住，默认关）
 
+dashscope:
+  workspace_id: ""      # 百炼业务空间 ID；留空用默认地址，报错时再填
+  region: cn-beijing    # 声音复刻请用北京地域
+
 tts:
-  model: cosyvoice-v3-plus   # 锁定版本，整门课不换
+  model: cosyvoice-v3-plus   # 复刻和合成必须同一个模型，定下后整门课不换
   sample_rate: 24000
   speech_rate: 1.0
   volume: 50
   pitch: 1.0
-  loudness_lufs: -16         # 每段统一响度
+  loudness_lufs: -16         # 每页统一响度
+  sentence_pause_ms: 250     # 句间停顿
+  page_pause_ms: 600         # 每页结尾停顿
   chars_per_minute: 250      # 用于生成前估算时长
 
-avatar:
-  # 以下 req_key 取自公开资料，开通后请以火山引擎控制台/官方文档为准
-  detect_req_key: jimeng_realman_avatar_picture_create_role_omni_v2
-  submit_req_key: jimeng_realman_avatar_picture_omni_v2
-  max_audio_seconds: 35      # 单次音频上限；超出自动切段。确认 2.0 可到 300 秒后改这里
-  poll_interval: 5
-  timeout: 1800
-  output: plain              # plain：普通背景，画中画小窗 / greenscreen：绿幕，抠像后放前景
+base:                        # 妈妈的底片视频
+  height: 1080
+  fps: 25
+
+lipsync:
+  # latentsync：只重画嘴部（需要 GPU）；none：直接用底片，不重画嘴（本机测试流程用）
+  engine: none
+  latentsync_dir: /root/autodl-tmp/LatentSync
+  python: /root/miniconda3/envs/latentsync/bin/python
+  # 调用命令模板。LatentSync 更新后参数名若变了，运行 python -m scripts.inference --help 对照修改
+  command: >-
+    {python} -m scripts.inference
+    --unet_config_path {unet_config}
+    --inference_ckpt_path {ckpt}
+    --inference_steps {steps}
+    --guidance_scale {guidance}
+    --video_path {video}
+    --audio_path {audio}
+    --video_out_path {out}
+  unet_config: configs/unet/stage2_512.yaml   # 1.6 版用 512 配置；以仓库里实际文件名为准
+  ckpt: checkpoints/latentsync_unet.pt
+  version: "1.6"             # 记进缓存键和成片元数据；换版本会让所有页重做
+  steps: 20                  # 20–50，越高越清晰越慢
+  guidance: 1.5              # 1.0–3.0，越高口型越准，过高会抖
 
 price:
-  avatar_cny_per_second: 1.0  # 官方价确认前按转售价上限估；第三方 $0.045–0.208/秒
-  tts_cny_per_10k_chars: 2.0
-  budget_cny: 3000            # 总预算上限，超出自动暂停
+  tts_cny_per_10k_chars: 2.0   # CosyVoice v3-plus
+  gpu_cny_per_hour: 1.88       # AutoDL RTX 4090 按量
+  gpu_speed_guess: 10          # 还没实测时，假设处理 1 秒音频要 10 秒 GPU；跑过样片后自动换成实测值
+  budget_cny: 300              # 总预算上限，超出自动暂停
 
 layout:
   width: 1920
   height: 1080
   fps: 25
-  avatar_height: 640          # 前景数字人高度（像素）
+  avatar_mode: chromakey      # chromakey：绿幕抠像站在右下角 / pip：直接贴小窗 / none：只放 PPT
+  chroma_color: "0x00FF00"
+  chroma_similarity: 0.15     # 抠得不干净就调大一点
+  chroma_blend: 0.05
+  avatar_height: 760          # 妈妈在画面里的高度（像素）
   avatar_margin: 40
   avatar_side: right
-  fade: 0.3                   # 段间淡入淡出秒数
-  page_pad: 0.6               # 每页尾部留白秒数
-  watermark: "AI 生成"         # 画面角标；留空则不加
+  watermark: "本视频由AI生成"   # 画面角标；留空则不加
+  subtitle_max_chars: 22
   font: /System/Library/Fonts/Hiragino Sans GB.ttc
 
 check:

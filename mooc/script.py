@@ -47,3 +47,24 @@ def draft(title, text, prev_script=""):
                       json={"model": c["model"], "messages": [{"role": "user", "content": prompt}]})
     r.raise_for_status()
     return r.json()["choices"][0]["message"]["content"].strip()
+
+
+NO_AVATAR = "#无人"
+
+
+def strip_marker(text):
+    """讲稿首行写 #无人 的页只配音不出镜：返回 (是否出镜, 去掉标记的讲稿)。"""
+    lines = (text or "").strip().splitlines()
+    if lines and lines[0].strip() == NO_AVATAR: return False, "\n".join(lines[1:]).strip()
+    return True, (text or "").strip()
+
+
+def subtitle_cues(sent, start, end, max_chars):
+    """一句话按逗号拆成不超过 max_chars 的字幕行，时间按字数比例分配。"""
+    parts = sentences(sent.rstrip("。；;"), max_chars) or [sent]
+    total = sum(len(p) for p in parts) or 1
+    out, t = [], start
+    for p in parts:
+        d = (end - start) * len(p) / total
+        out.append((t, t + d, p)); t += d
+    return out

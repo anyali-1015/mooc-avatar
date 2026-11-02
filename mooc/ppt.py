@@ -1,6 +1,6 @@
 """PPT 导入：python-pptx 读每页文字与备注；渲染成 1080p 背景图。
 渲染优先级：用户导出的 PDF → LibreOffice → Keynote（macOS）→ Pillow 文字版兜底（只有文字，没有原版式，仅供跑通流程）。"""
-import os, shutil, subprocess, tempfile
+import os, shutil, subprocess, sys, tempfile
 from pathlib import Path
 from pptx import Presentation
 from PIL import Image, ImageDraw
@@ -48,7 +48,7 @@ def _soffice(pptx, td):
         ("/Applications/LibreOffice.app/Contents/MacOS/soffice" if Path("/Applications/LibreOffice.app").exists() else None)
     if not exe: return None
     # headless 模式用自带 fontconfig，看不到系统中文字体；fonts.conf 把系统字体目录和中文回退加进去
-    env = {**os.environ, "FONTCONFIG_FILE": str(Path(__file__).with_name("fonts.conf"))}
+    env = {**os.environ, "FONTCONFIG_FILE": str(Path(__file__).with_name("fonts.conf"))} if sys.platform == "darwin" else None
     subprocess.run([exe, "--headless", "--convert-to", "pdf", "--outdir", td, str(pptx)], capture_output=True, timeout=600, env=env)
     pdf = Path(td) / (Path(pptx).stem + ".pdf")
     return pdf if pdf.exists() else None

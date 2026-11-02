@@ -28,7 +28,17 @@ def conn():
     return c
 
 
-with conn() as _c: _c.executescript(SCHEMA)
+# 后加的列：旧数据库自动补上
+COLUMNS = {"profile": {"base_video": "text", "base_loop": "text", "loop_sec": "real", "base_hash": "text", "ref_frame": "text"},
+           "pages": {"timeline": "text default ''", "base_offset": "real", "gpu_s": "real default 0"},
+           "lessons": {"start_cursor": "real"}}
+
+with conn() as _c:
+    _c.executescript(SCHEMA)
+    for t, cols in COLUMNS.items():
+        have = {r[1] for r in _c.execute(f"pragma table_info({t})")}
+        for k, typ in cols.items():
+            if k not in have: _c.execute(f"alter table {t} add column {k} {typ}")
 
 
 def now(): return time.strftime("%Y-%m-%d %H:%M:%S")

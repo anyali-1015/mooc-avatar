@@ -1,0 +1,12 @@
+python-pptx
+streamlit
+imageio-ffmpeg
+pillow
+numpy
+pymupdf
+requests
+pyyaml
+# 真实接口才需要
+dashscope
+volcengine
+oss2

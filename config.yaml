@@ -1,0 +1,57 @@
+# 数字人慕课制作工具 · 配置
+# 原则：会影响“形象/声音稳定”的东西都写在这里锁死，整门课不逐页调整。
+# 密钥不要写在这里，放环境变量或 .env（见 .env.example）。
+
+course: 数据结构      # 课程名，用于授权说明
+data_dir: data
+
+# mock：本地假数据跑通全流程（声音用 macOS say，数字人用照片轻微晃动），不花钱
+# cosyvoice / omnihuman：真实接口
+tts_provider: mock
+avatar_provider: mock
+storage: local          # local（仅 mock 可用）/ oss
+ppt_keynote: false      # 没有 PDF 和 LibreOffice 时尝试用 Keynote 转换（可能弹窗卡住，默认关）
+
+tts:
+  model: cosyvoice-v3-plus   # 锁定版本，整门课不换
+  sample_rate: 24000
+  speech_rate: 1.0
+  volume: 50
+  pitch: 1.0
+  loudness_lufs: -16         # 每段统一响度
+  chars_per_minute: 250      # 用于生成前估算时长
+
+avatar:
+  # 以下 req_key 取自公开资料，开通后请以火山引擎控制台/官方文档为准
+  detect_req_key: jimeng_realman_avatar_picture_create_role_omni_v2
+  submit_req_key: jimeng_realman_avatar_picture_omni_v2
+  max_audio_seconds: 35      # 单次音频上限；超出自动切段。确认 2.0 可到 300 秒后改这里
+  poll_interval: 5
+  timeout: 1800
+  output: plain              # plain：普通背景，画中画小窗 / greenscreen：绿幕，抠像后放前景
+
+price:
+  avatar_cny_per_second: 1.0  # 官方价确认前按转售价上限估；第三方 $0.045–0.208/秒
+  tts_cny_per_10k_chars: 2.0
+  budget_cny: 3000            # 总预算上限，超出自动暂停
+
+layout:
+  width: 1920
+  height: 1080
+  fps: 25
+  avatar_height: 640          # 前景数字人高度（像素）
+  avatar_margin: 40
+  avatar_side: right
+  fade: 0.3                   # 段间淡入淡出秒数
+  page_pad: 0.6               # 每页尾部留白秒数
+  watermark: "AI 生成"         # 画面角标；留空则不加
+  font: /System/Library/Fonts/Hiragino Sans GB.ttc
+
+check:
+  face_min_similarity: 0.80   # 阈值需用样片实测后再定
+  voice_min_similarity: 0.85
+
+llm:                           # 可选：没有备注的页起草讲稿
+  enabled: false
+  model: qwen-plus
+  base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
